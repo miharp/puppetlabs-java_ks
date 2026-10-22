@@ -30,8 +30,28 @@ Puppet::Type.type(:java_ks).provide(:keytool) do
       chain_certs = get_chain(certificate)
       x509_cert = chain_certs.shift
     end
-    pkcs12 = OpenSSL::PKCS12.create(password, @resource[:name], pkey, x509_cert, chain_certs)
+    pkcs12 = pkcs12_create(password, @resource[:name], pkey, x509_cert, chain_certs)
     File.open(path, 'wb') { |f| f.print pkcs12.to_der }
+  end
+
+  # OpenSSL's PKCS12 defaults do not work on a host running in FIPS mode.
+  # OpenSSL 1.x encrypts the bags with RC2-40 and 3DES, which FIPS mode refuses,
+  # and the PKCS12 integrity MAC is keyed with the PKCS12 KDF, which the OpenSSL 3
+  # FIPS provider does not implement.  Ask for PBES2 with AES-256 explicitly (the
+  # OpenSSL 3 default, and readable by keytool since Java 8u301 and 11.0.12) and
+  # skip the MAC in FIPS mode.  The file only exists long enough for keytool to
+  # read it once, so the MAC adds nothing.
+  def pkcs12_create(pass, name, pkey, cert, chain)
+    mac_iter = nil
+    if fips_mode?
+      Puppet.debug("java_ks: OpenSSL is in FIPS mode, creating the PKCS12 for #{name} without a MAC")
+      mac_iter = -1
+    end
+    OpenSSL::PKCS12.create(pass, name, pkey, cert, chain, 'AES-256-CBC', 'AES-256-CBC', nil, mac_iter)
+  end
+
+  def fips_mode?
+    OpenSSL.respond_to?(:fips_mode) && OpenSSL.fips_mode
   end
 
   # Keytool can only import a jceks keystore if the format is der.  Generating and
