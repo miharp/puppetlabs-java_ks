@@ -133,7 +133,7 @@ describe Puppet::Type.type(:java_ks).provider(:keytool) do
 
           pkcs_double = BogusPkcs.new
           expect(pkcs_double).to receive(:to_der)
-          expect(OpenSSL::PKCS12).to receive(:create).with(resource[:password], resource[:name], 'priv_obj', 'cert_obj', [], 'AES-256-CBC', 'AES-256-CBC', nil, nil).and_return(pkcs_double)
+          expect(OpenSSL::PKCS12).to receive(:create).with(resource[:password], resource[:name], 'priv_obj', 'cert_obj', []).and_return(pkcs_double)
           provider.to_pkcs12("#{temp_dir}testing.stuff")
         end
         # rubocop:enable RSpec/MultipleExpectations
@@ -159,7 +159,7 @@ describe Puppet::Type.type(:java_ks).provider(:keytool) do
 
           pkcs_double = BogusPkcs.new
           expect(pkcs_double).to receive(:to_der)
-          expect(OpenSSL::PKCS12).to receive(:create).with(resource[:password], resource[:name], 'priv_obj', 'cert_obj', [], 'AES-256-CBC', 'AES-256-CBC', nil, nil).and_return(pkcs_double)
+          expect(OpenSSL::PKCS12).to receive(:create).with(resource[:password], resource[:name], 'priv_obj', 'cert_obj', []).and_return(pkcs_double)
           provider.to_pkcs12("#{temp_dir}testing.stuff")
         end
         # rubocop:enable RSpec/MultipleExpectations
@@ -168,13 +168,13 @@ describe Puppet::Type.type(:java_ks).provider(:keytool) do
     end
 
     describe '#pkcs12_create' do
-      it 'uses PBES2 with AES-256 and keeps the MAC outside FIPS mode' do
+      it 'keeps the default algorithms outside FIPS mode' do
         allow(provider).to receive(:fips_mode?).and_return(false)
-        expect(OpenSSL::PKCS12).to receive(:create).with('puppet', 'app', 'priv_obj', 'cert_obj', [], 'AES-256-CBC', 'AES-256-CBC', nil, nil)
+        expect(OpenSSL::PKCS12).to receive(:create).with('puppet', 'app', 'priv_obj', 'cert_obj', [])
         provider.pkcs12_create('puppet', 'app', 'priv_obj', 'cert_obj', [])
       end
 
-      it 'skips the MAC in FIPS mode' do
+      it 'uses AES-256 and skips the MAC in FIPS mode' do
         allow(provider).to receive(:fips_mode?).and_return(true)
         expect(OpenSSL::PKCS12).to receive(:create).with('puppet', 'app', 'priv_obj', 'cert_obj', [], 'AES-256-CBC', 'AES-256-CBC', nil, -1)
         provider.pkcs12_create('puppet', 'app', 'priv_obj', 'cert_obj', [])
